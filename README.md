@@ -1,5 +1,7 @@
 # FastMJPG (README)
 
+<img src="./logo/FastMJPG-logos-header.jpeg" />
+
 **FastMJPG is a command line tool for capturing, sending, receiving, rendering, piping, and recording MJPG video with extremely low latency. It is optimized for running on constrained hardware and battery powered devices.**
 
 It is written entirely in C, and leverages UDP for network transport, v4l2 for video capture, libturbojpeg for JPEG decoding, libglfw for OpenGL rendering, and ffmpeg for Matroska video packing.
