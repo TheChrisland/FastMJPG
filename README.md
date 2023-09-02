@@ -1,6 +1,6 @@
-# FastMJPG (README)
+<img src="./logo.png" />
 
-<img src="./logo/FastMJPG-logos-header.jpeg" />
+# FastMJPG (README)
 
 **FastMJPG is a command line tool for capturing, sending, receiving, rendering, piping, and recording MJPG video with extremely low latency. It is optimized for running on constrained hardware and battery powered devices.**
 
