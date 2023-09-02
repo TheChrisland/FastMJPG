@@ -8,6 +8,10 @@ It is written entirely in C, and leverages UDP for network transport, v4l2 for v
 
 It can be integrated directly into your C application as a library, piped to your application via a file descriptor, or used exclusively as a command line tool.
 
+## Alpha
+
+**FastMJPG is currently in a public alpha state. It is feature complete, and all known bugs have been fixed, though more issues are expected to be discovered as it is used by more people. It is not recommended for use in critical production environments at this time.**
+
 ## Install
 
 ```sh
