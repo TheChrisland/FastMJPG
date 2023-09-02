@@ -141,7 +141,7 @@ fj ... send LOCAL_IP_ADDRESS LOCAL_PORT REMOTE_IP_ADDRESS REMOTE_PORT MAX_PACKET
 1. FastMJPG only supports sending to other FastMJPG processes, it will not work with other software as it uses a custom application layer UDP protocol.
 2. All stream configuration settings must exactly match that of the receiver, otherwise it will result in undefined behaviour.
 3. `MAX_PACKET_LENGTH` should be the largest value that fits into your network's MTU minus the overhead of the UDP header and IP header. MTU fragmented packets will result in undefined behaviour.
-4. `MAX_JPEG_LENGTH` should be larger than the maximum JPEG frame size produced by the `capture`, otherwise it will result in undefined behaviour.
+4. `MAX_JPEG_LENGTH` must be larger than the maximum JPEG frame size produced by the `capture`, otherwise it will result in undefined behaviour.
 
 ## Pipe (Output)
 
