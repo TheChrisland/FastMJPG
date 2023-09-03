@@ -69,7 +69,7 @@ At least one output is also required, one or more of:
 ## Capture (Input)
 
 ```sh
-fj capture DEVICE_NAME RESOLUTION_WIDTH RESOLUTION_HEIGHT TIMEBASE_NUMERATOR TIMEBASE_DENOMINATOR ...
+FastMJPG capture DEVICE_NAME RESOLUTION_WIDTH RESOLUTION_HEIGHT TIMEBASE_NUMERATOR TIMEBASE_DENOMINATOR ...
 ```
 
 | Position | Argument | Type | Example | Description |
@@ -88,7 +88,7 @@ fj capture DEVICE_NAME RESOLUTION_WIDTH RESOLUTION_HEIGHT TIMEBASE_NUMERATOR TIM
 ## Receive (Input)
 
 ```sh
-fj receive LOCAL_IP_ADDRESS LOCAL_PORT MAX_PACKET_LENGTH MAX_JPEG_LENGTH RESOLUTION_WIDTH RESOLUTION_HEIGHT TIMEBASE_NUMERATOR TIMEBASE_DENOMINATOR ...
+FastMJPG receive LOCAL_IP_ADDRESS LOCAL_PORT MAX_PACKET_LENGTH MAX_JPEG_LENGTH RESOLUTION_WIDTH RESOLUTION_HEIGHT TIMEBASE_NUMERATOR TIMEBASE_DENOMINATOR ...
 ```
 
 | Position | Argument | Type | Example | Description |
@@ -110,7 +110,7 @@ fj receive LOCAL_IP_ADDRESS LOCAL_PORT MAX_PACKET_LENGTH MAX_JPEG_LENGTH RESOLUT
 ## Render (Output)
 
 ```sh
-fj ... render WINDOW_WIDTH WINDOW_HEIGHT ...
+FastMJPG ... render WINDOW_WIDTH WINDOW_HEIGHT ...
 ```
 
 | Position | Argument | Type | Example | Description |
@@ -126,7 +126,7 @@ fj ... render WINDOW_WIDTH WINDOW_HEIGHT ...
 ## Record (Output)
 
 ```sh
-fj ... record FILE_NAME ...
+FastMJPG ... record FILE_NAME ...
 ```
 
 | Position | Argument | Type | Example | Description |
@@ -139,7 +139,7 @@ fj ... record FILE_NAME ...
 ## Send (Output)
 
 ```sh
-fj ... send LOCAL_IP_ADDRESS LOCAL_PORT REMOTE_IP_ADDRESS REMOTE_PORT MAX_PACKET_LENGTH MAX_JPEG_LENGTH SEND_ROUNDS ...
+FastMJPG ... send LOCAL_IP_ADDRESS LOCAL_PORT REMOTE_IP_ADDRESS REMOTE_PORT MAX_PACKET_LENGTH MAX_JPEG_LENGTH SEND_ROUNDS ...
 ```
 
 | Position | Argument | Type | Example | Description |
@@ -160,7 +160,7 @@ fj ... send LOCAL_IP_ADDRESS LOCAL_PORT REMOTE_IP_ADDRESS REMOTE_PORT MAX_PACKET
 ## Pipe (Output)
 
 ```sh
-fj ... pipe PIPE_FILE_DESCRIPTOR RGB_OR_JPEG MAX_PACKET_LENGTH ...
+FastMJPG ... pipe PIPE_FILE_DESCRIPTOR RGB_OR_JPEG MAX_PACKET_LENGTH ...
 ```
 
 | Position | Argument | Type | Example | Description |
