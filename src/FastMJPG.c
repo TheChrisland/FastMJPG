@@ -124,10 +124,9 @@ typedef struct Metrics {
 
 
 static Metrics* paramsMetrics[MAX_PARAMS];
-static const unsigned int frameTimeHistoryLength = 1000;
-static uint64_t* frameTimeHistory
-static unsigned int frameTimeHistoryIndex;
-static bool frameTimeHistorySaturated;
+static uint64_t firstFrameTime;
+static uint64_t lastFrameTime;
+static uint64_t totalFrameCount;
 
 static inline uint64_t now() {
     struct timeval tv;
@@ -157,14 +156,9 @@ static inline void createMetrics() {
         paramsMetrics[paramIndex]->deltaMax = 0;
         paramsMetrics[paramIndex]->count = 0;
     }
-    frameTimeHistory = malloc(frameTimeHistoryLength * sizeof(uint64_t));
-    if (frameTimeHistory == NULL) {
-        fprintf(stderr, "Unable to allocate memory for frame time history.\n");
-        exit(EXIT_FAILURE);
-    }
-    memset(frameTimeHistory, 0, frameTimeHistoryLength * sizeof(uint64_t));
-    frameTimeHistoryIndex = 0;
-    frameTimeHistorySaturated = false;
+    firstFrameTime = UINT64_MAX;
+    lastFrameTime = UINT64_MAX;
+    totalFrameCount = 0;
 }
 
 static inline void paramsMetricsStart(unsigned int paramIndex) {
@@ -209,12 +203,15 @@ static inline void paramsMetricsEnd(unsigned int paramIndex) {
             paramMetrics->deltaMax = paramMetrics->deltaLast;
         }
     }
-    frameTimeHistory[frameTimeHistoryIndex] = now();
-    frameTimeHistoryIndex++;
-    if (frameTimeHistoryIndex >= frameTimeHistoryLength) {
-        frameTimeHistoryIndex = 0;
-        frameTimeHistorySaturated = true;
+}
+
+static inline void frameMetricsEnd() {
+    uint64_t timestamp = now();
+    if (firstFrameTime == UINT64_MAX) {
+        firstFrameTime = timestamp;
     }
+    lastFrameTime = timestamp;
+    totalFrameCount++;
 }
 
 static inline void printParam(unsigned int paramIndex) {
@@ -270,12 +267,13 @@ static inline void printParam(unsigned int paramIndex) {
             printf("    Max Packet Length:    %u\n", pipeParams->maxPacketLength);
             break;
         default:
-            printf(stderr, "Unknown param type.\n");
+            fprintf(stderr, "Unknown param type.\n");
             exit(EXIT_FAILURE);
     }
 }
 
 static inline void printMetrics() {
+    printf("\n");
     for (unsigned int paramIndex = 0; paramIndex < paramsCount; paramIndex++) {
         Metrics* paramMetrics = paramsMetrics[paramIndex];
         printf("Param %d:\n", paramIndex);
@@ -304,13 +302,10 @@ static inline void printMetrics() {
             printf("        Last:    %lu\n", paramMetrics->deltaLast);
         }
     }
-    uint64_t average = 0;
-    for (unsigned int i = 0; i < frameTimeHistorySaturated ? frameTimeHistoryLength : frameTimeHistoryIndex; i++) {
-        average += frameTimeHistory[i];
-    }
-    average /= frameTimeHistorySaturated ? frameTimeHistoryLength : frameTimeHistoryIndex;
-    double fps = 1000000.0 / average;
-    printf("FPS: %f\n", fps);
+    double durationTime = lastFrameTime - firstFrameTime;
+    double framesPerUsecond = (double)totalFrameCount / durationTime;
+    double framesPerSecond = framesPerUsecond * 1000000.0;
+    printf("%lu frames at approximately %f frames per second.\n", totalFrameCount, framesPerSecond);
 }
 
 static inline void destroyMetrics() {
@@ -325,13 +320,13 @@ static inline void printUsage() {
     printf("FastMJPG\n");
     printf("\n");
     printf("Help:\n");
-    printf("fj help\n");
+    printf("FastMJPG help\n");
     printf("\n");
     printf("Devices:\n");
-    printf("fj devices\n");
+    printf("FastMJPG devices\n");
     printf("\n");
     printf("Usage:\n");
-    printf("fj [input] [output 0] [output 1] ... [output n]\n");
+    printf("FastMJPG [input] [output 0] [output 1] ... [output n]\n");
     printf("\n");
     printf("Input:\n");
     printf("    capture\n");
@@ -692,9 +687,10 @@ static inline void mainLoop() {
             switch (paramsTypes[paramIndex]) {
                 case PARAM_TYPE_CAPTURE: {
                     CaptureParams* captureParams = params[paramIndex];
-                    jpegBufferLength             = VideoCaptureGetFrame(captureParams->videoCapture);
-                    jpegBuffer                   = captureParams->videoCapture->leasedFrameBuffer;
-                    uTimestamp                   = captureParams->videoCapture->leasedV4l2Buffer->timestamp.tv_sec * 1000000 + captureParams->videoCapture->leasedV4l2Buffer->timestamp.tv_usec;
+                    VideoCaptureGetFrame(captureParams->videoCapture);
+                    jpegBufferLength = captureParams->videoCapture->leasedFrameBuffer->bytesUsed;
+                    jpegBuffer       = captureParams->videoCapture->leasedFrameBuffer->start;
+                    uTimestamp       = captureParams->videoCapture->leasedFrameBuffer->uTimestamp;
                     break;
                 }
                 case PARAM_TYPE_RECEIVE: {
@@ -743,6 +739,9 @@ static inline void mainLoop() {
         if (paramsTypes[0] == PARAM_TYPE_CAPTURE) {
             VideoCaptureReturnFrame(((CaptureParams*)params[0])->videoCapture);
         }
+#ifdef MEASURE
+        frameMetricsEnd();
+#endif
     }
 }
 
