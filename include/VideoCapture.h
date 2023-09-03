@@ -18,17 +18,20 @@
 typedef struct FrameBuffer {
     void*         start;
     unsigned long length;
+    unsigned long bytesUsed;
+    uint64_t      uTimestamp;
 } FrameBuffer;
 
 typedef struct VideoCapture {
     int                 fd;
     FrameBuffer*        frameBuffers;
-    void*               leasedFrameBuffer;
+    FrameBuffer*        leasedFrameBuffer;
     struct v4l2_buffer* leasedV4l2Buffer;
+    uint64_t            epochTimeShift;
 } VideoCapture;
 
 VideoCapture* VideoCaptureCreate(char* deviceName, unsigned int resolutionWidth, unsigned int resolutionHeight, unsigned int timebaseNumerator, unsigned int timebaseDenominator);
-unsigned int  VideoCaptureGetFrame(VideoCapture* videoCapture);
+void          VideoCaptureGetFrame(VideoCapture* videoCapture);
 void          VideoCaptureReturnFrame(VideoCapture* videoCapture);
 void          VideoCaptureFree(VideoCapture* videoCapture);
 

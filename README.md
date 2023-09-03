@@ -8,7 +8,21 @@ It is written entirely in C, and leverages UDP for network transport, v4l2 for v
 
 It can be integrated directly into your C application as a library, piped to your application via a file descriptor, or used exclusively as a command line tool.
 
-## Alpha
+## Table of Contents
+
++ [Alpha Notice](#alpha-notice)
++ [Install](#install)
++ [Syntax](#syntax)
+    + [Capture (Input)](#capture-input)
+    + [Receive (Input)](#receive-input)
+    + [Render (Output)](#render-output)
+    + [Record (Output)](#record-output)
+    + [Send (Output)](#send-output)
+    + [Pipe (Output)](#pipe-output)
++ [Measuring Latency](#measuring-latency)
++ [Author](#author)
+
+## Alpha Notice
 
 **FastMJPG is currently in a public alpha state. It is feature complete, and all known bugs have been fixed, though more issues are expected to be discovered as it is used by more people. It is not recommended for use in critical production environments at this time.**
 
@@ -169,6 +183,31 @@ Per Frame (RGB or JPEG):
 0xFF 0x00 0x00 0xFF 0x00 0x00 0xFF 0x00 0x00 0xFF 0x00 0x00
 ```
 4. JPEG data does not contain MJPG frame separators, and is provided instead as a single properly formed JPEG.
+
+## Measuring Latency
+
+FastMJPG has a built in latency measurement tool that can be used to measure the latency of the entire pipeline. It is disabled by default, and must be enabled at compile time as follows:
+
+```sh
+# Build with measure enabled:
+./build measure
+
+# Run FastMJPG:
+./FastMJPG [input] [output 0] [output 1] ... [output n]
+```
+
+Once enabled you can run FastMJPG as normal, and upon sending a `sigint` signal (`CTRL+C`) it will print all of the latency measurements to the console.
+
+All measurements are the amount of microseconds (not milliseconds) since the capture timestamp of the frame as reported by v4l2. Literally how long has the frame been going stale for upon reaching that point in the pipeline.
+
+**Caveats:**
+
+1. Measuring incurs a significant processing overhead especially on constrained hardware, and will increase the latency of the pipeline. It is recommended to only use this feature for debugging purposes.
+2. Different computers have different internal clocks, meaning you must use a network time protocol synchronization tool such as `ntpd` to synchronize the clocks of the computers you are measuring between. Even still this is all best effort, and the measurements will never be 100% accurate.
+3. The measurements provided are effectively only useful for comparing the relative latency of different configurations of FastMJPG, and are not useful for comparing the latency of FastMJPG to other software without careful scrutiny and an understanding of how the measurements are taken in both FastMJPG and the compared.
+4. The measurements provided are a very rough approximation of the actual latency of the pipeline, and should serve only as an indicator to guide further investigation.
+5. The first step in any FastMJPG instance (`capture` or `receive`) has no capture timestamp to measure against when it starts, meaning the start and delta of those steps will not be tracked or printed.
+6. Each instance tracks it's own measurements, and does not communicate with other instances beyond the normally provided capture timestamp.
 
 ## Author
 

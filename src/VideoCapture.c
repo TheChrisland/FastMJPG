@@ -10,6 +10,18 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <time.h>
+#include <math.h>
+
+static uint64_t getEpochTimeShift() {
+    struct timeval epochTime;
+    struct timespec monotonicTime;
+    gettimeofday(&epochTime, NULL);
+    clock_gettime(CLOCK_MONOTONIC, &monotonicTime);
+    uint64_t uMonotonicTime = monotonicTime.tv_sec * 1000000 + (uint64_t)round(monotonicTime.tv_nsec / 1000.0);
+    uint64_t uEpochTime = epochTime.tv_sec * 1000000 + epochTime.tv_usec;
+    return uEpochTime - uMonotonicTime;
+}
 
 static int xioctl(int fd, long unsigned int requestCode, void* arg) {
     for (;;) {
@@ -28,6 +40,13 @@ VideoCapture* VideoCaptureCreate(char* deviceName, unsigned int resolutionWidth,
         exit(EXIT_FAILURE);
     }
     memset(videoCapture, 0, sizeof(VideoCapture));
+    videoCapture->epochTimeShift = getEpochTimeShift();
+    videoCapture->leasedFrameBuffer = malloc(sizeof(FrameBuffer));
+    if (videoCapture->leasedFrameBuffer == NULL) {
+        fprintf(stderr, "Error: Unable to allocate memory for VideoCapture leased frame buffer.\n");
+        exit(EXIT_FAILURE);
+    }
+    memset(videoCapture->leasedFrameBuffer, 0, sizeof(FrameBuffer));
     videoCapture->leasedV4l2Buffer = malloc(sizeof(struct v4l2_buffer));
     if (videoCapture->leasedV4l2Buffer == NULL) {
         fprintf(stderr, "Error: Unable to allocate memory for VideoCapture leased V4L2 buffer.\n");
@@ -145,7 +164,7 @@ VideoCapture* VideoCaptureCreate(char* deviceName, unsigned int resolutionWidth,
     return videoCapture;
 }
 
-unsigned int VideoCaptureGetFrame(VideoCapture* videoCapture) {
+void VideoCaptureGetFrame(VideoCapture* videoCapture) {
     memset(videoCapture->leasedV4l2Buffer, 0, sizeof(struct v4l2_buffer));
     videoCapture->leasedV4l2Buffer->type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     videoCapture->leasedV4l2Buffer->memory = V4L2_MEMORY_MMAP;
@@ -153,8 +172,9 @@ unsigned int VideoCaptureGetFrame(VideoCapture* videoCapture) {
         fprintf(stderr, "Error: Unexpected error dequeueing frame buffer VIDIOC_DQBUF.\n");
         exit(EXIT_FAILURE);
     }
-    videoCapture->leasedFrameBuffer = videoCapture->frameBuffers[videoCapture->leasedV4l2Buffer->index].start;
-    return videoCapture->leasedV4l2Buffer->bytesused;
+    videoCapture->leasedFrameBuffer = &videoCapture->frameBuffers[videoCapture->leasedV4l2Buffer->index];
+    videoCapture->leasedFrameBuffer->bytesUsed = videoCapture->leasedV4l2Buffer->bytesused;
+    videoCapture->leasedFrameBuffer->uTimestamp = videoCapture->leasedV4l2Buffer->timestamp.tv_sec * 1000000 + videoCapture->leasedV4l2Buffer->timestamp.tv_usec + videoCapture->epochTimeShift;
 }
 
 void VideoCaptureReturnFrame(VideoCapture* videoCapture) {

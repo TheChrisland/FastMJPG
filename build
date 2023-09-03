@@ -1,8 +1,19 @@
 #!/bin/bash
 
-CC=gcc
-CFLAGS="-Wall -Wextra -Werror -O3 -I./include"
-LFLAGS="-lturbojpeg -lglfw -lavformat -lavcodec -lavutil -O3"
+if [[ "$1" == "measure" ]]; then
+    CC=gcc
+    CFLAGS="-Wall -Wextra -Werror -O3 -I./include -DMEASURE"
+    LFLAGS="-lturbojpeg -lglfw -lavformat -lavcodec -lavutil -lm -O3"
+elif [[ "$1" == "debug" ]]; then
+    CC=gcc
+    CFLAGS="-Wall -Wextra -Werror -g -I./include"
+    LFLAGS="-lturbojpeg -lglfw -lavformat -lavcodec -lavutil -lm -g"
+else
+    CC=gcc
+    CFLAGS="-Wall -Wextra -Werror -O3 -I./include"
+    LFLAGS="-lturbojpeg -lglfw -lavformat -lavcodec -lavutil -lm -O3"
+fi
+
 
 rm -rf ./obj
 mkdir -p ./obj
@@ -40,7 +51,7 @@ compile "./src/VideoUDPSender.c" "./obj/VideoUDPSender.o"
 compile "./src/VideoUDPShared.c" "./obj/VideoUDPShared.o"
 compile "./src/FastMJPG.c" "./obj/FastMJPG.o"
 
-link "./obj/GLAD.o" "./obj/VideoCapture.o" "./obj/VideoDecoder.o" "./obj/VideoPipe.o" "./obj/VideoRecorder.o" "./obj/VideoRenderer.o" "./obj/VideoUDPReceiver.o" "./obj/VideoUDPSender.o" "./obj/VideoUDPShared.o" "./obj/FastMJPG.o" "./bin/fj"
+link "./obj/GLAD.o" "./obj/VideoCapture.o" "./obj/VideoDecoder.o" "./obj/VideoPipe.o" "./obj/VideoRecorder.o" "./obj/VideoRenderer.o" "./obj/VideoUDPReceiver.o" "./obj/VideoUDPSender.o" "./obj/VideoUDPShared.o" "./obj/FastMJPG.o" "./bin/FastMJPG"
 
 echo "Build successful!"
 exit 0
