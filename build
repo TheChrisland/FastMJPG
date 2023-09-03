@@ -1,8 +1,19 @@
 #!/bin/bash
 
-CC=gcc
-CFLAGS="-Wall -Wextra -Werror -O3 -I./include"
-LFLAGS="-lturbojpeg -lglfw -lavformat -lavcodec -lavutil -O3"
+if [[ "$1" == "measure" ]]; then
+    CC=gcc
+    CFLAGS="-Wall -Wextra -Werror -O3 -I./include -DMEASURE"
+    LFLAGS="-lturbojpeg -lglfw -lavformat -lavcodec -lavutil -O3"
+elif [[ "$1" == "debug" ]]; then
+    CC=gcc
+    CFLAGS="-Wall -Wextra -Werror -g -I./include"
+    LFLAGS="-lturbojpeg -lglfw -lavformat -lavcodec -lavutil -g"
+else
+    CC=gcc
+    CFLAGS="-Wall -Wextra -Werror -O3 -I./include"
+    LFLAGS="-lturbojpeg -lglfw -lavformat -lavcodec -lavutil -O3"
+fi
+
 
 rm -rf ./obj
 mkdir -p ./obj

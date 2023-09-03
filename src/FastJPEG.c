@@ -101,6 +101,226 @@ static unsigned int  jpegBufferLength          = 0;
 static VideoDecoder* videoDecoder              = NULL;
 static bool          receivedSigint            = false;
 
+#ifdef MEASURE
+
+typedef struct Metrics {
+    uint64_t startTotal;
+    uint64_t startAverage;
+    uint64_t startMin;
+    uint64_t startMax;
+    uint64_t startLast;
+    uint64_t endTotal;
+    uint64_t endAverage;
+    uint64_t endMin;
+    uint64_t endMax;
+    uint64_t endLast;
+    uint64_t deltaTotal;
+    uint64_t deltaAverage;
+    uint64_t deltaMin;
+    uint64_t deltaMax;
+    uint64_t deltaLast;
+    uint64_t count;
+} Metrics;
+
+
+static Metrics* paramsMetrics[MAX_PARAMS];
+static const unsigned int frameTimeHistoryLength = 1000;
+static uint64_t* frameTimeHistory
+static unsigned int frameTimeHistoryIndex;
+static bool frameTimeHistorySaturated;
+
+static inline uint64_t now() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+static inline void createMetrics() {
+    for (unsigned int paramIndex = 0; paramIndex < paramsCount; paramIndex++) {
+        paramsMetrics[paramIndex] = malloc(sizeof(Metrics));
+        if (paramsMetrics[paramIndex] == NULL) {
+            fprintf(stderr, "Unable to allocate memory for metrics.\n");
+            exit(EXIT_FAILURE);
+        }
+        memset(paramsMetrics[paramIndex], 0, sizeof(Metrics));
+        paramsMetrics[paramIndex]->startTotal = 0;
+        paramsMetrics[paramIndex]->startAverage = 0;
+        paramsMetrics[paramIndex]->startMin = UINT64_MAX;
+        paramsMetrics[paramIndex]->startMax = 0;
+        paramsMetrics[paramIndex]->endTotal = 0;
+        paramsMetrics[paramIndex]->endAverage = 0;
+        paramsMetrics[paramIndex]->endMin = UINT64_MAX;
+        paramsMetrics[paramIndex]->endMax = 0;
+        paramsMetrics[paramIndex]->deltaTotal = 0;
+        paramsMetrics[paramIndex]->deltaAverage = 0;
+        paramsMetrics[paramIndex]->deltaMin = UINT64_MAX;
+        paramsMetrics[paramIndex]->deltaMax = 0;
+        paramsMetrics[paramIndex]->count = 0;
+    }
+    frameTimeHistory = malloc(frameTimeHistoryLength * sizeof(uint64_t));
+    if (frameTimeHistory == NULL) {
+        fprintf(stderr, "Unable to allocate memory for frame time history.\n");
+        exit(EXIT_FAILURE);
+    }
+    memset(frameTimeHistory, 0, frameTimeHistoryLength * sizeof(uint64_t));
+    frameTimeHistoryIndex = 0;
+    frameTimeHistorySaturated = false;
+}
+
+static inline void paramsMetricsStart(unsigned int paramIndex) {
+    Metrics* paramMetrics = paramsMetrics[paramIndex];
+    paramMetrics->count++;
+    if (paramIndex == 0) {
+        paramMetrics->startLast = 0;
+    } else {
+        paramMetrics->startLast = now() - uTimestamp;
+        paramMetrics->startTotal += paramMetrics->startLast;
+        paramMetrics->startAverage = paramMetrics->startTotal / paramMetrics->count;
+        if (paramMetrics->startLast < paramMetrics->startMin) {
+            paramMetrics->startMin = paramMetrics->startLast;
+        }
+        if (paramMetrics->startLast > paramMetrics->startMax) {
+            paramMetrics->startMax = paramMetrics->startLast;
+        }
+    }
+}
+
+static inline void paramsMetricsEnd(unsigned int paramIndex) {
+    Metrics* paramMetrics = paramsMetrics[paramIndex];
+    paramMetrics->endLast = now() - uTimestamp;
+    paramMetrics->endTotal += paramMetrics->endLast;
+    paramMetrics->endAverage = paramMetrics->endTotal / paramMetrics->count;
+    if (paramMetrics->endLast < paramMetrics->endMin) {
+        paramMetrics->endMin = paramMetrics->endLast;
+    }
+    if (paramMetrics->endLast > paramMetrics->endMax) {
+        paramMetrics->endMax = paramMetrics->endLast;
+    }
+    if (paramIndex == 0) {
+        paramMetrics->deltaLast = 0;
+    } else {
+        paramMetrics->deltaLast = paramMetrics->endLast - paramMetrics->startLast;
+        paramMetrics->deltaTotal += paramMetrics->deltaLast;
+        paramMetrics->deltaAverage = paramMetrics->deltaTotal / paramMetrics->count;
+        if (paramMetrics->deltaLast < paramMetrics->deltaMin) {
+            paramMetrics->deltaMin = paramMetrics->deltaLast;
+        }
+        if (paramMetrics->deltaLast > paramMetrics->deltaMax) {
+            paramMetrics->deltaMax = paramMetrics->deltaLast;
+        }
+    }
+    frameTimeHistory[frameTimeHistoryIndex] = now();
+    frameTimeHistoryIndex++;
+    if (frameTimeHistoryIndex >= frameTimeHistoryLength) {
+        frameTimeHistoryIndex = 0;
+        frameTimeHistorySaturated = true;
+    }
+}
+
+static inline void printParam(unsigned int paramIndex) {
+    switch (paramsTypes[paramIndex]) {
+        case PARAM_TYPE_CAPTURE:
+            CaptureParams* captureParams = params[paramIndex];
+            printf("Capture:\n");
+            printf("    Device Name:          %s\n", captureParams->deviceName);
+            printf("    Resolution Width:     %u\n", captureParams->resolutionWidth);
+            printf("    Resolution Height:    %u\n", captureParams->resolutionHeight);
+            printf("    Timebase Numerator:   %u\n", captureParams->timebaseNumerator);
+            printf("    Timebase Denominator: %u\n", captureParams->timebaseDenominator);
+            break;
+        case PARAM_TYPE_RECEIVE:
+            ReceiveParams* receiveParams = params[paramIndex];
+            printf("Receive:\n");
+            printf("    Local IP Address:     %s\n", receiveParams->localIPAddress);
+            printf("    Local Port:           %u\n", receiveParams->localPort);
+            printf("    Max Packet Length:    %u\n", receiveParams->maxPacketLength);
+            printf("    Max JPEG Length:      %u\n", receiveParams->maxJPEGLength);
+            printf("    Resolution Width:     %u\n", receiveParams->resolutionWidth);
+            printf("    Resolution Height:    %u\n", receiveParams->resolutionHeight);
+            printf("    Timebase Numerator:   %u\n", receiveParams->timebaseNumerator);
+            printf("    Timebase Denominator: %u\n", receiveParams->timebaseDenominator);
+            break;
+        case PARAM_TYPE_RENDER:
+            RenderParams* renderParams = params[paramIndex];
+            printf("Render:\n");
+            printf("    Window Width:         %u\n", renderParams->windowWidth);
+            printf("    Window Height:        %u\n", renderParams->windowHeight);
+            break;
+        case PARAM_TYPE_RECORD:
+            RecordParams* recordParams = params[paramIndex];
+            printf("Record:\n");
+            printf("    File Name:            %s\n", recordParams->fileName);
+            break;
+        case PARAM_TYPE_SEND:
+            SendParams* sendParams = params[paramIndex];
+            printf("Send:\n");
+            printf("    Local IP Address:     %s\n", sendParams->localIPAddress);
+            printf("    Local Port:           %u\n", sendParams->localPort);
+            printf("    Remote IP Address:    %s\n", sendParams->remoteIPAddress);
+            printf("    Remote Port:          %u\n", sendParams->remotePort);
+            printf("    Max Packet Length:    %u\n", sendParams->maxPacketLength);
+            printf("    Max JPEG Length:      %u\n", sendParams->maxJPEGLength);
+            printf("    Send Rounds:          %u\n", sendParams->sendRounds);
+            break;
+        case PARAM_TYPE_PIPE:
+            PipeParams* pipeParams = params[paramIndex];
+            printf("Pipe:\n");
+            printf("    Pipe File Descriptor: %d\n", pipeParams->pipeFileDescriptor);
+            printf("    RGB or JPEG:          %s\n", pipeParams->rgbOrJPEG);
+            printf("    Max Packet Length:    %u\n", pipeParams->maxPacketLength);
+            break;
+        default:
+            printf(stderr, "Unknown param type.\n");
+            exit(EXIT_FAILURE);
+    }
+}
+
+static inline void printMetrics() {
+    for (unsigned int paramIndex = 0; paramIndex < paramsCount; paramIndex++) {
+        Metrics* paramMetrics = paramsMetrics[paramIndex];
+        printf("Param %d:\n", paramIndex);
+        printParam(paramIndex);
+        printf("    Count:       %lu\n", paramMetrics->count);
+        if (paramIndex != 0) {
+            printf("    Start:\n");
+            printf("        Total:   %lu\n", paramMetrics->startTotal);
+            printf("        Average: %lu\n", paramMetrics->startAverage);
+            printf("        Min:     %lu\n", paramMetrics->startMin);
+            printf("        Max:     %lu\n", paramMetrics->startMax);
+            printf("        Last:    %lu\n", paramMetrics->startLast);
+        }
+        printf("    End:\n");
+        printf("        Total:   %lu\n", paramMetrics->endTotal);
+        printf("        Average: %lu\n", paramMetrics->endAverage);
+        printf("        Min:     %lu\n", paramMetrics->endMin);
+        printf("        Max:     %lu\n", paramMetrics->endMax);
+        printf("        Last:    %lu\n", paramMetrics->endLast);
+        if (paramIndex != 0) {
+            printf("    Delta:\n");
+            printf("        Total:   %lu\n", paramMetrics->deltaTotal);
+            printf("        Average: %lu\n", paramMetrics->deltaAverage);
+            printf("        Min:     %lu\n", paramMetrics->deltaMin);
+            printf("        Max:     %lu\n", paramMetrics->deltaMax);
+            printf("        Last:    %lu\n", paramMetrics->deltaLast);
+        }
+    }
+    uint64_t average = 0;
+    for (unsigned int i = 0; i < frameTimeHistorySaturated ? frameTimeHistoryLength : frameTimeHistoryIndex; i++) {
+        average += frameTimeHistory[i];
+    }
+    average /= frameTimeHistorySaturated ? frameTimeHistoryLength : frameTimeHistoryIndex;
+    double fps = 1000000.0 / average;
+    printf("FPS: %f\n", fps);
+}
+
+static inline void destroyMetrics() {
+    for (unsigned int paramIndex = 0; paramIndex < paramsCount; paramIndex++) {
+        free(paramsMetrics[paramIndex]);
+    }
+}
+
+#endif
+
 static inline void printUsage() {
     printf("FastMJPG\n");
     printf("\n");
@@ -465,6 +685,9 @@ static inline void mainLoop() {
             return;
         }
         for (unsigned int paramIndex = 0; paramIndex < paramsCount; paramIndex++) {
+#ifdef MEASURE
+            paramsMetricsStart(paramIndex);
+#endif
             bool frameDecoded = false;
             switch (paramsTypes[paramIndex]) {
                 case PARAM_TYPE_CAPTURE: {
@@ -513,6 +736,9 @@ static inline void mainLoop() {
                     break;
                 }
             }
+#ifdef MEASURE
+            paramsMetricsEnd(paramIndex);
+#endif
         }
         if (paramsTypes[0] == PARAM_TYPE_CAPTURE) {
             VideoCaptureReturnFrame(((CaptureParams*)params[0])->videoCapture);
@@ -594,7 +820,14 @@ int main(int argc, char** argv) {
     validateParams();
     createVideoDecoderIfRequired();
     signal(SIGINT, receiveSigint);
+#ifdef MEASURE
+    createMetrics();
+#endif
     mainLoop();
+#ifdef MEASURE
+    printMetrics();
+    destroyMetrics();
+#endif
     freeAll();
     return EXIT_SUCCESS;
 }
